@@ -151,8 +151,96 @@ function reveal(g) {
   }));
 }
 
+/* ---------- Code Breaker mode ----------
+   Self-paced race against the clock. Answer correctly to earn coins, then try to
+   crack a random rival's 4-digit vault code: pick 1 of 3 codes, one is theirs.
+   Their real code stays the same until someone cracks it, so players who watch
+   which code keeps showing up for a rival can crack them reliably. */
+const newCode = () => String(Math.floor(1000 + Math.random() * 9000));
+const shuffled = (n) => {
+  const a = [...Array(n).keys()];
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+};
+const CB_BASE = 100, CB_STREAK = 20, CB_BONUS_NO_TARGET = 100;
+
+function cbNextQuestion(g, p) {
+  if (!p.order || p.pos >= p.order.length) { p.order = shuffled(g.quiz.questions.length); p.pos = 0; }
+  p.cbq = p.order[p.pos++];
+  p.crack = null;
+  const q = g.quiz.questions[p.cbq];
+  send(p.ws, { t: 'cb_q', q: q.q, options: q.options, coins: p.score, streak: p.streak });
+}
+
+function cbBoard(g) {
+  const sorted = board(g);
+  send(g.host, {
+    t: 'cb_board', left: Math.max(0, g.endAt - Date.now()), players: g.players.size,
+    board: sorted.slice(0, 10).map((p) => ({ name: p.name, score: p.score })),
+  });
+  sorted.forEach((p, i) => send(p.ws, { t: 'cb_me', rank: i + 1, of: sorted.length, coins: p.score }));
+}
+
+function cbStart(g) {
+  g.state = 'running';
+  g.endAt = Date.now() + g.minutes * 60000;
+  const msg = { t: 'cb_start', endAt: g.endAt };
+  send(g.host, msg);
+  for (const p of g.players.values()) { p.score = 0; p.streak = 0; if (p.ws) { send(p.ws, msg); cbNextQuestion(g, p); } }
+  g.tick = setInterval(() => cbBoard(g), 1500);
+  clearTimeout(g.timer);
+  g.timer = setTimeout(() => endGame(g), g.minutes * 60000);
+  cbBoard(g);
+}
+
+function cbAnswer(g, p, ws, choiceRaw) {
+  if (g.state !== 'running' || p.cbq == null || p.crack) return;
+  const q = g.quiz.questions[p.cbq];
+  const choice = Number(choiceRaw);
+  if (!Number.isInteger(choice) || choice < 0 || choice >= q.options.length) return;
+  p.cbq = null;
+  if (choice !== q.correct) {
+    p.streak = 0;
+    return send(ws, { t: 'cb_result', right: false, correct: q.correct, coins: p.score });
+  }
+  p.streak++;
+  let gain = CB_BASE + Math.min(p.streak - 1, 5) * CB_STREAK;
+  p.score += gain;
+  const rivals = [...g.players.values()].filter((x) => x !== p && x.score > 0);
+  if (!rivals.length) {
+    gain += CB_BONUS_NO_TARGET; p.score += CB_BONUS_NO_TARGET;
+    return send(ws, { t: 'cb_result', right: true, gain, coins: p.score, streak: p.streak, crack: null });
+  }
+  const target = rivals[Math.floor(Math.random() * rivals.length)];
+  const correctIdx = Math.floor(Math.random() * 3);
+  const codes = [];
+  while (codes.length < 2) { const c = newCode(); if (c !== target.code && !codes.includes(c)) codes.push(c); }
+  codes.splice(correctIdx, 0, target.code);
+  p.crack = { targetId: target.id, correctIdx };
+  send(ws, { t: 'cb_result', right: true, gain, coins: p.score, streak: p.streak, crack: { target: target.name, targetCoins: target.score, codes } });
+}
+
+function cbCrack(g, p, ws, pickRaw) {
+  if (g.state !== 'running' || !p.crack) return;
+  const pick = Number(pickRaw);
+  if (!Number.isInteger(pick) || pick < 0 || pick > 2) return;
+  const { targetId, correctIdx } = p.crack;
+  p.crack = null;
+  const target = g.players.get(targetId);
+  if (target && pick === correctIdx) {
+    const stolen = Math.min(target.score, Math.max(50, Math.floor(target.score * 0.25)));
+    target.score -= stolen; p.score += stolen; target.code = newCode();
+    send(ws, { t: 'cb_crack_result', success: true, stolen, coins: p.score, target: target.name });
+    send(target.ws, { t: 'cb_hacked', by: p.name, lost: stolen, coins: target.score });
+    send(g.host, { t: 'cb_event', text: `${p.name} cracked ${target.name}'s vault and stole ${stolen}!` });
+  } else {
+    send(ws, { t: 'cb_crack_result', success: false, coins: p.score, target: target ? target.name : '' });
+  }
+}
+
 function endGame(g) {
   clearTimeout(g.timer);
+  clearInterval(g.tick);
   g.state = 'ended';
   const sorted = board(g);
   send(g.host, { t: 'end', board: sorted.slice(0, 10).map((p) => ({ name: p.name, score: p.score })) });
@@ -164,6 +252,7 @@ function endGame(g) {
 
 function closeGame(g, reason) {
   clearTimeout(g.timer);
+  clearInterval(g.tick);
   for (const p of g.players.values()) send(p.ws, { t: 'closed', reason });
   games.delete(g.pin);
 }
@@ -186,10 +275,12 @@ function handle(ws, m) {
           source = fs.readFileSync(path.join(QUIZZES, file), 'utf8');
         }
         const quiz = normalizeQuiz(source);
-        const g = { pin: newPin(), quiz, host: ws, players: new Map(), state: 'lobby', qi: -1, timer: null, qStart: 0 };
+        const mode = m.mode === 'codebreaker' ? 'codebreaker' : 'classic';
+        const minutes = Math.min(30, Math.max(1, Number(m.minutes) || 5));
+        const g = { pin: newPin(), quiz, mode, minutes, host: ws, players: new Map(), state: 'lobby', qi: -1, timer: null, tick: null, qStart: 0 };
         games.set(g.pin, g);
         ctx.role = 'host'; ctx.game = g;
-        send(ws, { t: 'hosted', pin: g.pin, title: quiz.title, count: quiz.questions.length });
+        send(ws, { t: 'hosted', pin: g.pin, title: quiz.title, count: quiz.questions.length, mode, minutes });
       } catch (e) {
         send(ws, { t: 'error', msg: e.message });
       }
@@ -206,12 +297,17 @@ function handle(ws, m) {
       if (p && p.ws) return send(ws, { t: 'error', msg: 'That nickname is taken. Try another.' });
       if (!p) {
         if (g.players.size >= MAX_PLAYERS) return send(ws, { t: 'error', msg: 'Game is full.' });
-        p = { id: nextId++, name, score: 0, streak: 0, answered: false, choice: null, answeredAt: 0, ws: null };
+        p = { id: nextId++, name, score: 0, streak: 0, answered: false, choice: null, answeredAt: 0, ws: null,
+          code: newCode(), order: null, pos: 0, cbq: null, crack: null };
         g.players.set(p.id, p);
       }
       p.ws = ws; ctx.role = 'player'; ctx.game = g; ctx.player = p;
       send(ws, { t: 'joined', name: p.name, state: g.state });
       send(g.host, { t: 'players', list: lobbyList(g) });
+      if (g.state === 'running') { // joining or rejoining a Code Breaker game in progress
+        send(ws, { t: 'cb_start', endAt: g.endAt });
+        cbNextQuestion(g, p);
+      }
       if (g.state === 'question') { // rejoining mid-question
         const q = g.quiz.questions[g.qi];
         const left = Math.max(1, Math.round(q.time - (Date.now() - g.qStart) / 1000));
@@ -220,7 +316,23 @@ function handle(ws, m) {
       break;
     }
     case 'start':
-      if (ctx.role === 'host' && ctx.game.state === 'lobby' && connected(ctx.game).length) nextQuestion(ctx.game);
+      if (ctx.role === 'host' && ctx.game.state === 'lobby' && connected(ctx.game).length) {
+        if (ctx.game.mode === 'codebreaker') cbStart(ctx.game); else nextQuestion(ctx.game);
+      }
+      break;
+    case 'cb_answer':
+      if (ctx.role === 'player') cbAnswer(ctx.game, ctx.player, ws, m.choice);
+      break;
+    case 'cb_crack':
+      if (ctx.role === 'player') cbCrack(ctx.game, ctx.player, ws, m.pick);
+      break;
+    case 'cb_next': {
+      const g = ctx.game, p = ctx.player;
+      if (ctx.role === 'player' && g.state === 'running' && p.cbq == null && !p.crack) cbNextQuestion(g, p);
+      break;
+    }
+    case 'finish':
+      if (ctx.role === 'host' && ctx.game.state === 'running') endGame(ctx.game);
       break;
     case 'answer': {
       const g = ctx.game, p = ctx.player;

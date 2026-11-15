@@ -29,7 +29,12 @@ Next question...
 ```
 JSON also works: `{"title":"..","questions":[{"q":"..","options":["a","b"],"correct":0,"time":20}]}`
 
-## How it plays
+## Game modes
+On the host page choose a mode before starting:
+- **Classic race:** everyone answers the same question together; faster = more points.
+- **Code Breaker:** everyone plays at their own pace for 3-15 minutes. A correct answer earns coins (100, +20 per answer in a row, up to +100). Then you try to **crack a random rival's 4-digit vault code**: pick 1 of 3 codes and, if it's theirs, you steal 25% of their coins (at least 50). A rival's real code stays the same until someone cracks it, so players who notice which code keeps coming back can crack them reliably. The host sees a live leaderboard and feed, and can end the game early.
+
+## How Classic plays
 1. Host picks a quiz, gets a 6-digit PIN, students join, host presses Start.
 2. Each question shows on the big screen; students tap their answer on their phone.
 3. Score = up to 1000 for a correct answer (faster = more), plus a streak bonus (+100 per consecutive correct answer, max +500).

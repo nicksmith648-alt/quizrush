@@ -59,3 +59,7 @@ button.ghost { background: transparent; color: var(--muted); border: 2px solid #
 .podium small { display: block; font-weight: 600; }
 .full { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; z-index: 5; }
 .full.right { background: var(--ok); } .full.wrong { background: var(--bad); } .full.none { background: #4a4390; }
+
+/* Code Breaker vault codes: three across on wide screens */
+#cbCodes { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 560px) { #cbCodes { grid-template-columns: 1fr; } }

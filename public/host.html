@@ -16,7 +16,11 @@
       <input id="pw" type="password" autocomplete="current-password" placeholder="Teacher password">
     </div>
     <div class="card" style="display:grid;gap:12px">
-      <h2>1. Pick a quiz</h2>
+      <h2>Game mode</h2>
+      <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer"><input type="radio" name="mode" value="classic" checked style="width:auto;margin-top:6px"><span><b>Classic race</b><br><span class="muted">Everyone answers the same question together. Faster = more points.</span></span></label>
+      <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer"><input type="radio" name="mode" value="codebreaker" style="width:auto;margin-top:6px"><span><b>Code Breaker</b><br><span class="muted">Self-paced and timed. Answer to earn coins, then crack rivals' vault codes to steal theirs.</span></span></label>
+      <div id="minWrap" class="row hidden" style="display:none"><span class="muted">Game length</span><select id="minutes" style="width:auto"><option>3</option><option selected>5</option><option>8</option><option>10</option><option>15</option></select><span class="muted">minutes</span></div>
+      <h2>Pick a quiz</h2>
       <select id="quizSel"></select>
       <button id="startSaved">Host this quiz</button>
     </div>
@@ -53,6 +57,17 @@ necesary</textarea>
     <div class="chips" id="chips" style="justify-content:center"></div>
   </section>
 
+  <!-- code breaker running -->
+  <section id="cbrun" class="hidden" style="display:none;gap:16px">
+    <div class="row between"><h1 style="font-size:clamp(28px,5vw,48px)">🔐 Code Breaker</h1><span class="badge big" style="font-size:36px" id="cbTime">0:00</span></div>
+    <div class="bar"><i id="cbBar"></i></div>
+    <div class="row" style="align-items:flex-start;gap:20px">
+      <div style="flex:2;min-width:280px"><h2>Leaderboard</h2><ol class="board" id="cbBoard"></ol></div>
+      <div style="flex:1;min-width:240px"><h2>Live feed</h2><div id="cbFeed" style="display:grid;gap:8px"></div></div>
+    </div>
+    <div class="row" style="justify-content:center"><button class="ghost" id="finish">End game now</button></div>
+  </section>
+
   <!-- question -->
   <section id="question" class="hidden" style="display:none;gap:16px">
     <div class="row between"><span class="badge" id="qnum"></span><span class="badge" id="answered"></span><span class="badge big" style="font-size:28px" id="timeleft"></span></div>
@@ -83,7 +98,7 @@ necesary</textarea>
 <script src="/qrcode.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-const SECTIONS = ['setup', 'lobby', 'question', 'reveal', 'end'];
+const SECTIONS = ['setup', 'lobby', 'cbrun', 'question', 'reveal', 'end'];
 const show = (id) => SECTIONS.forEach((s) => { const el = $(s); el.style.display = s === id ? 'grid' : 'none'; el.classList.toggle('hidden', s !== id); });
 show('setup');
 
@@ -111,8 +126,15 @@ function host(payload) {
 fetch('/api/info').then((r) => r.json()).then((i) => {
   if (i.needsPassword) { $('pwCard').classList.remove('hidden'); $('pwCard').style.display = 'grid'; }
 }).catch(() => {});
-$('startSaved').onclick = () => host({ file: $('quizSel').value, password: $('pw').value });
-$('startPaste').onclick = () => host({ text: $('paste').value, password: $('pw').value });
+const mode = () => document.querySelector('input[name=mode]:checked').value;
+document.querySelectorAll('input[name=mode]').forEach((r) => r.onchange = () => {
+  const cb = mode() === 'codebreaker';
+  $('minWrap').classList.toggle('hidden', !cb); $('minWrap').style.display = cb ? 'flex' : 'none';
+});
+const opts = () => ({ password: $('pw').value, mode: mode(), minutes: Number($('minutes').value) });
+$('startSaved').onclick = () => host({ file: $('quizSel').value, ...opts() });
+$('startPaste').onclick = () => host({ text: $('paste').value, ...opts() });
+$('finish').onclick = () => { if (confirm('End the game now?')) ws.send(JSON.stringify({ t: 'finish' })); };
 $('go').onclick = () => ws.send(JSON.stringify({ t: 'start' }));
 $('skip').onclick = () => ws.send(JSON.stringify({ t: 'skip' }));
 $('next').onclick = () => ws.send(JSON.stringify({ t: 'next' }));
@@ -121,7 +143,8 @@ function on(m) {
   switch (m.t) {
     case 'error': $('setupErr').textContent = m.msg; ws.onclose = null; ws.close(); break;
     case 'hosted': {
-      $('pin').textContent = m.pin; $('lobbyTitle').textContent = `${m.title} · ${m.count} questions`;
+      $('pin').textContent = m.pin;
+      $('lobbyTitle').textContent = `${m.title} · ${m.count} questions · ` + (m.mode === 'codebreaker' ? `Code Breaker, ${m.minutes} min` : 'Classic race');
       fetch('/api/info').then((r) => r.json()).then((i) => {
         const local = ['localhost', '127.0.0.1'].includes(location.hostname);
         const ip = i.ips[0];
@@ -132,10 +155,30 @@ function on(m) {
       show('lobby'); break;
     }
     case 'players': renderPlayers(m.list); break;
+    case 'cb_start': cbTotal = m.endAt - Date.now(); $('cbFeed').innerHTML = ''; show('cbrun'); break;
+    case 'cb_board': renderCb(m); break;
+    case 'cb_event': {
+      const d = document.createElement('div'); d.className = 'chip'; d.textContent = m.text;
+      const feed = $('cbFeed'); feed.prepend(d); while (feed.children.length > 8) feed.lastChild.remove(); break;
+    }
     case 'question': showQuestion(m); break;
     case 'count': $('answered').textContent = `${m.answered} / ${m.total} answered`; break;
     case 'reveal': showReveal(m); break;
     case 'end': showEnd(m); break;
+  }
+}
+
+let cbTotal = 1;
+function renderCb(m) {
+  const s = Math.ceil(m.left / 1000);
+  $('cbTime').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  $('cbBar').style.transform = `scaleX(${Math.max(0, m.left / cbTotal)})`;
+  const ol = $('cbBoard'); ol.innerHTML = '';
+  for (const p of m.board) {
+    const li = document.createElement('li');
+    const n = document.createElement('span'); n.textContent = p.name;
+    const c = document.createElement('span'); c.className = 's'; c.textContent = '🪙 ' + p.score;
+    li.append(n, c); ol.appendChild(li);
   }
 }
 
