@@ -1,0 +1,16 @@
+{
+  "name": "quizrush",
+  "version": "1.0.0",
+  "description": "Original classroom quiz game: host on a big screen, students join from phones with a PIN.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

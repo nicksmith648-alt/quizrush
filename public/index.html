@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuizRush</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <!-- join -->
+  <section id="join" class="center" style="margin-top:8vh">
+    <h1>Quiz<span style="color:var(--c)">Rush</span></h1>
+    <p class="muted">Enter the game PIN shown on the screen.</p>
+    <form id="joinForm" class="card" style="width:100%;max-width:420px;display:grid;gap:12px">
+      <input id="pin" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="Game PIN" required>
+      <input id="name" autocomplete="off" maxlength="20" placeholder="Nickname" required>
+      <button>Join</button>
+      <div id="joinErr" class="err"></div>
+    </form>
+  </section>
+
+  <!-- waiting -->
+  <section id="wait" class="center hidden" style="margin-top:20vh">
+    <h2 id="waitMsg">You're in!</h2>
+    <p class="muted" id="waitSub">Watch the screen. The game starts soon.</p>
+  </section>
+
+  <!-- question -->
+  <section id="play" class="hidden">
+    <div class="row between"><span class="badge" id="qnum"></span><span class="badge" id="timeleft"></span></div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="qtext" id="qtext"></div>
+    <div class="answers" id="answers"></div>
+  </section>
+
+  <!-- result -->
+  <section id="result" class="full hidden">
+    <div>
+      <div class="big" id="rTitle"></div>
+      <h2 id="rPoints"></h2>
+      <p id="rInfo" style="font-size:24px"></p>
+    </div>
+  </section>
+
+  <!-- end -->
+  <section id="end" class="center hidden" style="margin-top:6vh">
+    <h2>Game over!</h2>
+    <div class="big" id="endRank"></div>
+    <p id="endScore" style="font-size:24px"></p>
+    <ol class="board" id="endPodium" style="width:100%;max-width:420px"></ol>
+    <button onclick="location.href='/'">Play again</button>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const show = (id) => { for (const s of ['join','wait','play','result','end']) $(s).classList.toggle('hidden', s !== id); };
+const qs = new URLSearchParams(location.search);
+if (qs.get('pin')) $('pin').value = qs.get('pin');
+try { $('name').value = localStorage.getItem('qr-name') || ''; } catch {}
+
+let ws, joined = false, timer = null, answered = false;
+function connect(pin, name) {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.onopen = () => ws.send(JSON.stringify({ t: 'join', pin, name }));
+  ws.onmessage = (e) => on(JSON.parse(e.data));
+  ws.onclose = () => {
+    if (joined) { // try to rejoin quietly
+      $('waitMsg').textContent = 'Reconnecting…'; $('waitSub').textContent = ''; show('wait');
+      setTimeout(() => connect(pin, name), 1500);
+    }
+  };
+}
+$('joinForm').onsubmit = (e) => {
+  e.preventDefault();
+  $('joinErr').textContent = '';
+  const pin = $('pin').value.trim(), name = $('name').value.trim();
+  try { localStorage.setItem('qr-name', name); } catch {}
+  connect(pin, name);
+};
+
+function on(m) {
+  switch (m.t) {
+    case 'error':
+      if (joined) break;
+      $('joinErr').textContent = m.msg; ws.onclose = null; ws.close(); break;
+    case 'joined':
+      joined = true;
+      $('waitMsg').textContent = `You're in, ${m.name}!`; $('waitSub').textContent = 'Watch the screen. The game starts soon.';
+      if (m.state === 'lobby') show('wait'); break;
+    case 'question': startQuestion(m); break;
+    case 'ack': $('waitMsg').textContent = 'Answer locked in'; $('waitSub').textContent = 'Waiting for everyone else…'; show('wait'); clearInterval(timer); break;
+    case 'result': showResult(m); break;
+    case 'end': showEnd(m); break;
+    case 'closed':
+      joined = false; ws.onclose = null; ws.close();
+      $('waitMsg').textContent = 'Game closed'; $('waitSub').textContent = m.reason || ''; show('wait'); break;
+  }
+}
+
+function startQuestion(m) {
+  answered = !!m.already;
+  $('qnum').textContent = `Question ${m.index + 1} of ${m.total}`;
+  $('qtext').textContent = m.q;
+  const box = $('answers'); box.innerHTML = '';
+  m.options.forEach((text, i) => {
+    const b = document.createElement('button');
+    b.className = 'ans'; b.dataset.i = i;
+    const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'ABCD'[i];
+    b.append(tag, document.createTextNode(text));
+    b.onclick = () => { if (answered) return; answered = true; ws.send(JSON.stringify({ t: 'answer', choice: i })); [...box.children].forEach((c) => c.disabled = true); };
+    box.appendChild(b);
+  });
+  if (answered) { $('waitMsg').textContent = 'Answer locked in'; $('waitSub').textContent = 'Waiting for everyone else…'; show('wait'); return; }
+  const end = Date.now() + m.time * 1000;
+  clearInterval(timer);
+  const tick = () => {
+    const left = Math.max(0, end - Date.now());
+    $('timeleft').textContent = Math.ceil(left / 1000) + 's';
+    $('bar').style.transform = `scaleX(${left / (m.time * 1000)})`;
+    if (!left) clearInterval(timer);
+  };
+  tick(); timer = setInterval(tick, 100);
+  show('play');
+}
+
+function showResult(m) {
+  clearInterval(timer);
+  const box = $('result');
+  box.className = 'full ' + (!m.answered ? 'none' : m.right ? 'right' : 'wrong');
+  $('rTitle').textContent = !m.answered ? "Time's up" : m.right ? 'Correct!' : 'Not quite';
+  $('rPoints').textContent = m.right ? `+${m.points} points` : '';
+  const streak = m.streak > 1 ? ` · ${m.streak} in a row` : '';
+  $('rInfo').textContent = `You're #${m.rank} of ${m.of} · ${m.score} pts${streak}`;
+  show('result'); box.classList.remove('hidden');
+}
+
+function showEnd(m) {
+  $('endRank').textContent = m.rank === 1 ? '🏆 1st place!' : `#${m.rank} of ${m.of}`;
+  $('endScore').textContent = `${m.score} points`;
+  const ol = $('endPodium'); ol.innerHTML = '';
+  for (const p of m.podium) {
+    const li = document.createElement('li');
+    const n = document.createElement('span'); n.textContent = p.name;
+    const s = document.createElement('span'); s.className = 's'; s.textContent = p.score;
+    li.append(n, s); ol.appendChild(li);
+  }
+  joined = false; ws.onclose = null; show('end');
+}
+</script>
+</body>
+</html>

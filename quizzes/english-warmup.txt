@@ -1,0 +1,36 @@
+# English warm-up
+
+Which word is a noun?
+time: 15
+*table
+quickly
+run
+blue
+
+Choose the correct spelling.
+time: 15
+necesary
+*necessary
+neccessary
+neccesary
+
+Which sentence is in the past tense?
+time: 20
+She walks to school every day.
+She will walk to school tomorrow.
+*She walked to school yesterday.
+She is walking to school now.
+
+What is a simile?
+time: 20
+A comparison that says one thing IS another
+*A comparison using "like" or "as"
+A word that sounds like its meaning
+A repeated first letter sound
+
+Which word is an adjective in: "The ancient castle stood on a hill"?
+time: 20
+castle
+stood
+hill
+*ancient

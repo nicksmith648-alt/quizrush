@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuizRush · Host</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <!-- setup -->
+  <section id="setup" style="display:grid;gap:16px">
+    <h1>Quiz<span style="color:var(--c)">Rush</span> <span class="muted" style="font-size:.4em">teacher screen</span></h1>
+    <div class="card hidden" id="pwCard" style="display:none;gap:12px">
+      <h2>Teacher password</h2>
+      <input id="pw" type="password" autocomplete="current-password" placeholder="Teacher password">
+    </div>
+    <div class="card" style="display:grid;gap:12px">
+      <h2>1. Pick a quiz</h2>
+      <select id="quizSel"></select>
+      <button id="startSaved">Host this quiz</button>
+    </div>
+    <div class="card" style="display:grid;gap:12px">
+      <h2>…or paste your own</h2>
+      <p class="muted" style="margin:0">One question per block, blank line between blocks. Start the correct answer with <b>*</b>. Optional <b>time: 30</b> line (seconds) and a <b># Title</b> at the top.</p>
+      <textarea id="paste" spellcheck="false"># My quiz
+
+Which word is a noun?
+time: 15
+*table
+quickly
+run
+blue
+
+Choose the correct spelling.
+necessary
+*necessary
+neccessary
+necesary</textarea>
+      <button id="startPaste">Host pasted quiz</button>
+    </div>
+    <div id="setupErr" class="err"></div>
+  </section>
+
+  <!-- lobby -->
+  <section id="lobby" class="hidden center" style="display:none;gap:16px">
+    <div class="muted" id="lobbyTitle"></div>
+    <div>Join at <b id="joinUrl"></b> with PIN</div>
+    <div class="pin" id="pin"></div>
+    <div id="qr" style="background:#fff;padding:12px;border-radius:12px;width:200px;height:200px;margin:0 auto" title="Scan to join"></div>
+    <div class="muted">Scan to join</div>
+    <div class="row" style="justify-content:center"><span class="badge" id="plCount">0 players</span><button id="go" disabled>Start game</button></div>
+    <div class="chips" id="chips" style="justify-content:center"></div>
+  </section>
+
+  <!-- question -->
+  <section id="question" class="hidden" style="display:none;gap:16px">
+    <div class="row between"><span class="badge" id="qnum"></span><span class="badge" id="answered"></span><span class="badge big" style="font-size:28px" id="timeleft"></span></div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="qtext" id="qtext"></div>
+    <div class="answers" id="answers"></div>
+    <div class="row" style="justify-content:center"><button class="ghost" id="skip">Skip timer</button></div>
+  </section>
+
+  <!-- reveal -->
+  <section id="reveal" class="hidden" style="display:none;gap:16px">
+    <div class="qtext" id="rq"></div>
+    <div class="answers" id="rAnswers"></div>
+    <h2>Leaderboard</h2>
+    <ol class="board" id="rBoard"></ol>
+    <div class="row" style="justify-content:center"><button id="next">Next</button></div>
+  </section>
+
+  <!-- end -->
+  <section id="end" class="hidden center" style="display:none;gap:16px">
+    <h1>🏆 Final results</h1>
+    <div class="podium" id="podium"></div>
+    <ol class="board" id="endBoard"></ol>
+    <button onclick="location.reload()">New game</button>
+  </section>
+</main>
+
+<script src="/qrcode.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const SECTIONS = ['setup', 'lobby', 'question', 'reveal', 'end'];
+const show = (id) => SECTIONS.forEach((s) => { const el = $(s); el.style.display = s === id ? 'grid' : 'none'; el.classList.toggle('hidden', s !== id); });
+show('setup');
+
+let ws, timer = null, currentOptions = [];
+
+/* quiz list */
+fetch('/api/quizzes').then((r) => r.json()).then((list) => {
+  const sel = $('quizSel');
+  for (const q of list) {
+    const o = document.createElement('option');
+    o.value = q.file; o.disabled = !!q.invalid;
+    o.textContent = q.invalid ? q.title : `${q.title} (${q.count} questions)`;
+    sel.appendChild(o);
+  }
+  if (!list.length) $('startSaved').disabled = true;
+});
+
+function host(payload) {
+  $('setupErr').textContent = '';
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.onopen = () => ws.send(JSON.stringify({ t: 'host', ...payload }));
+  ws.onmessage = (e) => on(JSON.parse(e.data));
+  ws.onclose = () => { if ($('setup').style.display === 'none') alert('Connection lost. Reload to start a new game.'); };
+}
+fetch('/api/info').then((r) => r.json()).then((i) => {
+  if (i.needsPassword) { $('pwCard').classList.remove('hidden'); $('pwCard').style.display = 'grid'; }
+}).catch(() => {});
+$('startSaved').onclick = () => host({ file: $('quizSel').value, password: $('pw').value });
+$('startPaste').onclick = () => host({ text: $('paste').value, password: $('pw').value });
+$('go').onclick = () => ws.send(JSON.stringify({ t: 'start' }));
+$('skip').onclick = () => ws.send(JSON.stringify({ t: 'skip' }));
+$('next').onclick = () => ws.send(JSON.stringify({ t: 'next' }));
+
+function on(m) {
+  switch (m.t) {
+    case 'error': $('setupErr').textContent = m.msg; ws.onclose = null; ws.close(); break;
+    case 'hosted': {
+      $('pin').textContent = m.pin; $('lobbyTitle').textContent = `${m.title} · ${m.count} questions`;
+      fetch('/api/info').then((r) => r.json()).then((i) => {
+        const local = ['localhost', '127.0.0.1'].includes(location.hostname);
+        const ip = i.ips[0];
+        const hostPart = local && ip ? `${ip}:${i.port}` : location.host;
+        $('joinUrl').textContent = hostPart;
+        drawQr(`${location.protocol}//${hostPart}/?pin=${m.pin}`);
+      }).catch(() => { $('joinUrl').textContent = location.host; drawQr(`${location.origin}/?pin=${m.pin}`); });
+      show('lobby'); break;
+    }
+    case 'players': renderPlayers(m.list); break;
+    case 'question': showQuestion(m); break;
+    case 'count': $('answered').textContent = `${m.answered} / ${m.total} answered`; break;
+    case 'reveal': showReveal(m); break;
+    case 'end': showEnd(m); break;
+  }
+}
+
+function drawQr(url) {
+  try {
+    const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    $('qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    const svg = $('qr').querySelector('svg'); if (svg) { svg.style.width = '100%'; svg.style.height = '100%'; }
+  } catch (e) { $('qr').style.display = 'none'; }
+}
+
+function renderPlayers(list) {
+  const chips = $('chips'); chips.innerHTML = '';
+  for (const p of list) {
+    const c = document.createElement('span'); c.className = 'chip' + (p.online ? '' : ' off');
+    c.append(document.createTextNode(p.name));
+    const x = document.createElement('button'); x.textContent = '✕'; x.title = 'Remove';
+    x.onclick = () => ws.send(JSON.stringify({ t: 'kick', id: p.id }));
+    c.appendChild(x); chips.appendChild(c);
+  }
+  const online = list.filter((p) => p.online).length;
+  $('plCount').textContent = `${online} player${online === 1 ? '' : 's'}`;
+  $('go').disabled = online === 0;
+}
+
+function fillAnswers(box, options, counts, correct) {
+  box.innerHTML = '';
+  options.forEach((text, i) => {
+    const d = document.createElement('div'); d.className = 'ans'; d.dataset.i = i;
+    const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'ABCD'[i];
+    d.append(tag, document.createTextNode(text));
+    if (counts) {
+      const n = document.createElement('span'); n.className = 'n'; n.textContent = counts[i]; d.appendChild(n);
+      d.classList.add(i === correct ? 'right' : 'dim');
+    }
+    box.appendChild(d);
+  });
+}
+
+function showQuestion(m) {
+  currentOptions = m.options;
+  $('qnum').textContent = `Question ${m.index + 1} of ${m.total}`;
+  $('answered').textContent = '0 answered';
+  $('qtext').textContent = m.q;
+  fillAnswers($('answers'), m.options);
+  const end = Date.now() + m.time * 1000;
+  clearInterval(timer);
+  const tick = () => {
+    const left = Math.max(0, end - Date.now());
+    $('timeleft').textContent = Math.ceil(left / 1000);
+    $('bar').style.transform = `scaleX(${left / (m.time * 1000)})`;
+    if (!left) clearInterval(timer);
+  };
+  tick(); timer = setInterval(tick, 100);
+  show('question');
+}
+
+function showReveal(m) {
+  clearInterval(timer);
+  $('rq').textContent = $('qtext').textContent;
+  fillAnswers($('rAnswers'), currentOptions, m.counts, m.correct);
+  const ol = $('rBoard'); ol.innerHTML = '';
+  for (const p of m.top) {
+    const li = document.createElement('li');
+    const n = document.createElement('span'); n.textContent = p.name;
+    if (p.gained) { const g = document.createElement('small'); g.textContent = `+${p.gained}`; n.appendChild(g); }
+    const s = document.createElement('span'); s.className = 's'; s.textContent = p.score;
+    li.append(n, s); ol.appendChild(li);
+  }
+  $('next').textContent = m.last ? 'Show final results' : 'Next question';
+  show('reveal');
+}
+
+function showEnd(m) {
+  const pod = $('podium'); pod.innerHTML = '';
+  const order = [1, 0, 2]; // 2nd, 1st, 3rd
+  for (const i of order) {
+    const p = m.board[i]; if (!p) continue;
+    const d = document.createElement('div'); d.className = 'p' + (i + 1);
+    d.textContent = p.name;
+    const s = document.createElement('small'); s.textContent = p.score + ' pts'; d.appendChild(s);
+    pod.appendChild(d);
+  }
+  const ol = $('endBoard'); ol.innerHTML = '';
+  for (const p of m.board) {
+    const li = document.createElement('li');
+    const n = document.createElement('span'); n.textContent = p.name;
+    const s = document.createElement('span'); s.className = 's'; s.textContent = p.score;
+    li.append(n, s); ol.appendChild(li);
+  }
+  show('end');
+}
+</script>
+</body>
+</html>

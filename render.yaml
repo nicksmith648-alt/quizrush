@@ -1,0 +1,12 @@
+# Render Blueprint: deploys QuizRush as one web service.
+services:
+  - type: web
+    name: quizrush
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/info
+    envVars:
+      - key: HOST_PASSWORD
+        sync: false   # Render asks you for this when you create the service

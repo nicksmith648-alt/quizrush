@@ -1,0 +1,99 @@
+# Romeo and Juliet
+
+In which city is the play set?
+time: 15
+Venice
+*Verona
+Rome
+Florence
+
+What are the surnames of the two feuding families?
+time: 15
+Capulet and Tybalt
+Montague and Paris
+*Montague and Capulet
+Escalus and Capulet
+
+Who is Romeo in love with at the start of the play?
+time: 15
+Juliet
+*Rosaline
+Livia
+Beatrice
+
+Where do Romeo and Juliet first meet?
+time: 20
+At the church
+In the market square
+On Juliet's balcony
+*At a masked ball at the Capulets' house
+
+What does the Prologue call Romeo and Juliet?
+time: 20
+Brave heroes
+Forbidden friends
+*Star-crossed lovers
+Sworn enemies
+
+Who secretly marries Romeo and Juliet?
+time: 15
+The Nurse
+*Friar Laurence
+Prince Escalus
+Benvolio
+
+Who kills Mercutio?
+time: 15
+Paris
+Romeo
+Benvolio
+*Tybalt
+
+What is Romeo's punishment for killing Tybalt?
+time: 20
+He is put in prison
+He must marry Paris
+*He is banished from Verona
+He is sentenced to death
+
+Juliet is told to marry Paris. What does she do to avoid it?
+time: 25
+Runs away to Mantua
+*Drinks a potion that makes her seem dead
+Tells her father about Romeo
+Hides in the Nurse's room
+
+Why does Romeo not get Friar Laurence's letter explaining the plan?
+time: 25
+Tybalt's ghost destroys it
+Juliet forgets to send it
+*The messenger, Friar John, is held up by a plague quarantine
+The Nurse burns it
+
+How does Romeo die?
+time: 15
+He is stabbed by Paris
+*He drinks poison in Juliet's tomb
+He falls from the balcony
+He is killed by Lord Capulet
+
+Which literary device is "parting is such sweet sorrow"?
+time: 25
+Simile
+Alliteration
+*Oxymoron
+Onomatopoeia
+
+At the end, what do the two families agree to do?
+time: 25
+Leave Verona forever
+Blame the Prince
+*Make golden statues of Romeo and Juliet and end the feud
+Hold a joint wedding
+
+"A plague o' both your houses!" Who says this as he dies?
+time: 20
+Tybalt
+*Mercutio
+Paris
+Friar Laurence
