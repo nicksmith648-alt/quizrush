@@ -30,9 +30,14 @@ Next question...
 JSON also works: `{"title":"..","questions":[{"q":"..","options":["a","b"],"correct":0,"time":20}]}`
 
 ## Game modes
-On the host page choose a mode before starting:
+On the host page choose a mode, then tick one or **several quizzes** (they are combined into one pool of questions; Code Breaker plays best with 25+).
 - **Classic race:** everyone answers the same question together; faster = more points.
-- **Code Breaker:** everyone plays at their own pace for 3-15 minutes. A correct answer earns coins (100, +20 per answer in a row, up to +100). Then you try to **crack a random rival's 4-digit vault code**: pick 1 of 3 codes and, if it's theirs, you steal 25% of their coins (at least 50). A rival's real code stays the same until someone cracks it, so players who notice which code keeps coming back can crack them reliably. The host sees a live leaderboard and feed, and can end the game early.
+- **Code Breaker** (hacker theme): self-paced and timed (3-15 minutes).
+  1. Every player **chooses their own 4-digit vault code** (or taps Random) and keeps it until a rival cracks it.
+  2. A correct answer earns coins (100, +20 per answer in a row, up to +100) and lets you **decrypt 1 of 3 hidden packets**: bonus coins, a x2 multiplier for your next 3 correct answers, or a **HACK**.
+  3. A hack shows a rival's name and **3 codes, one of which is their real code**. Pick right and you steal 25% of their coins (at least 50). Pick wrong and that code is ruled out, and since codes never change until breached, remembering earlier attempts makes later hacks easier.
+  4. A cracked player is told, and must choose a new code.
+  The host sees a live Top Hackers board and an intrusion log, and can end the game early. Players can join while it is running (they choose a code first).
 
 ## How Classic plays
 1. Host picks a quiz, gets a 6-digit PIN, students join, host presses Start.

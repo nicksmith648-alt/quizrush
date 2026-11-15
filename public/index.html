@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>QuizRush</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/hack.css">
 </head>
 <body>
 <main>
@@ -26,7 +27,7 @@
     <p class="muted" id="waitSub">Watch the screen. The game starts soon.</p>
   </section>
 
-  <!-- question -->
+  <!-- classic question -->
   <section id="play" class="hidden">
     <div class="row between"><span class="badge" id="qnum"></span><span class="badge" id="timeleft"></span></div>
     <div class="bar"><i id="bar"></i></div>
@@ -35,25 +36,55 @@
   </section>
 
   <!-- code breaker -->
-  <section id="cb" class="hidden">
-    <div class="row between"><span class="badge" id="cbCoins">🪙 0</span><span class="badge" id="cbRank"></span><span class="badge" id="cbTime"></span></div>
-    <div id="cbToast" class="card hidden" style="background:#7a1f2b;text-align:center;font-weight:700"></div>
-    <div id="cbQ">
-      <div class="qtext" id="cbQtext"></div>
-      <div class="answers" id="cbAnswers"></div>
+  <section id="cb" class="hidden" style="display:grid;gap:14px">
+    <div class="row between">
+      <span class="badge" id="cbCoins">◈ 0</span>
+      <span class="badge" id="cbRank"></span>
+      <span class="badge hidden" id="cbMult"></span>
+      <span class="badge" id="vault" style="cursor:pointer" title="Tap to show or hide your vault code">🔒 ••••</span>
+      <span class="badge" id="cbTime"></span>
     </div>
-    <div id="cbMsg" class="center card hidden" style="text-align:center"></div>
-    <div id="cbCrack" class="hidden" style="display:none;gap:12px">
-      <div class="center" style="text-align:center">
-        <h2 id="cbCrackTitle">🔐 Crack the vault!</h2>
-        <p style="margin:6px 0">Target: <b id="cbTarget"></b> · <span id="cbTargetCoins"></span></p>
-        <p class="muted" style="margin:0">One code opens it. Their real code stays the same until someone cracks it, so watch for repeats.</p>
+    <div id="cbToast" class="card alert hidden"></div>
+
+    <div id="cbQ" class="term">
+      <div class="term-bar"><i></i><i></i><i></i><span id="cbQTitle">query</span></div>
+      <div class="term-body">
+        <div class="qtext" id="cbQtext"></div>
+        <div class="answers" id="cbAnswers"></div>
       </div>
-      <div class="answers" id="cbCodes"></div>
+    </div>
+
+    <div id="cbPacks" class="term hidden">
+      <div class="term-bar"><i></i><i></i><i></i><span>decrypt a packet</span></div>
+      <div class="term-body">
+        <div class="center" style="text-align:center"><div class="glitch granted" id="cbGain" style="font-size:clamp(24px,6vw,40px)"></div>
+          <p class="muted" style="margin:6px 0 0">Choose one encrypted packet. Contents are hidden.</p></div>
+        <div class="packets" id="cbPackets"></div>
+      </div>
+    </div>
+
+    <div id="cbCrack" class="term hidden">
+      <div class="term-bar"><i></i><i></i><i></i><span>breach in progress</span></div>
+      <div class="term-body">
+        <div style="text-align:center">
+          <h2 style="margin:0">Target: <span id="cbTarget"></span></h2>
+          <p style="margin:6px 0" id="cbTargetCoins"></p>
+          <p class="muted" style="margin:0">One of these is their real vault code. Codes never change until breached, so remember what you have seen. A wrong guess rules that code out.</p>
+        </div>
+        <div class="answers" id="cbCodes"></div>
+      </div>
+    </div>
+
+    <div id="cbMsg" class="term hidden">
+      <div class="term-bar"><i></i><i></i><i></i><span>system</span></div>
+      <div class="term-body" style="text-align:center;min-height:160px;place-content:center">
+        <div class="glitch" id="cbMsgBig"></div>
+        <div id="cbMsgSub" style="font-size:18px"></div>
+      </div>
     </div>
   </section>
 
-  <!-- result -->
+  <!-- classic result -->
   <section id="result" class="full hidden">
     <div>
       <div class="big" id="rTitle"></div>
@@ -64,7 +95,7 @@
 
   <!-- end -->
   <section id="end" class="center hidden" style="margin-top:6vh">
-    <h2>Game over!</h2>
+    <h2 id="endTitle">Game over!</h2>
     <div class="big" id="endRank"></div>
     <p id="endScore" style="font-size:24px"></p>
     <ol class="board" id="endPodium" style="width:100%;max-width:420px"></ol>
@@ -72,6 +103,20 @@
   </section>
 </main>
 
+<!-- choose your vault code -->
+<div id="portal" class="portal hidden">
+  <div class="term" style="width:100%;max-width:520px">
+    <div class="term-bar"><i></i><i></i><i></i><span id="portalTitle">secure_portal</span></div>
+    <div class="term-body">
+      <div id="boot" class="boot"></div>
+      <input id="codeIn" class="codeinput" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000">
+      <div class="row" style="justify-content:center"><button id="rand" type="button">🎲 Random</button><button id="lock" type="button">Lock vault</button></div>
+      <div id="codeErr" class="err" style="text-align:center"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/rain.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const show = (id) => { for (const s of ['join','wait','play','cb','result','end']) $(s).classList.toggle('hidden', s !== id); };
@@ -79,14 +124,16 @@ const qs = new URLSearchParams(location.search);
 if (qs.get('pin')) $('pin').value = qs.get('pin');
 try { $('name').value = localStorage.getItem('qr-name') || ''; } catch {}
 
-let ws, joined = false, timer = null, answered = false;
+let ws, joined = false, timer = null, answered = false, mode = 'classic';
+const send = (o) => ws.send(JSON.stringify(o));
+
 function connect(pin, name) {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
-  ws.onopen = () => ws.send(JSON.stringify({ t: 'join', pin, name }));
+  ws.onopen = () => send({ t: 'join', pin, name });
   ws.onmessage = (e) => on(JSON.parse(e.data));
   ws.onclose = () => {
     if (joined) { // try to rejoin quietly
-      $('waitMsg').textContent = 'Reconnecting…'; $('waitSub').textContent = ''; show('wait');
+      $('waitMsg').textContent = mode === 'codebreaker' ? '> CONNECTION LOST. RECONNECTING…' : 'Reconnecting…'; $('waitSub').textContent = ''; show('wait');
       setTimeout(() => connect(pin, name), 1500);
     }
   };
@@ -105,92 +152,186 @@ function on(m) {
       if (joined) break;
       $('joinErr').textContent = m.msg; ws.onclose = null; ws.close(); break;
     case 'joined':
-      joined = true;
-      $('waitMsg').textContent = `You're in, ${m.name}!`; $('waitSub').textContent = 'Watch the screen. The game starts soon.';
-      if (m.state === 'lobby') show('wait'); break;
+      joined = true; mode = m.mode || 'classic';
+      if (mode === 'codebreaker') {
+        document.body.classList.add('hack'); startRain(0.14);
+        $('waitMsg').textContent = `> CONNECTED AS ${m.name.toUpperCase()}`; $('waitSub').textContent = '> AWAITING HOST…';
+        if (m.state === 'lobby') { show('wait'); if (!m.hasCode) openPortal('start'); }
+      } else {
+        $('waitMsg').textContent = `You're in, ${m.name}!`; $('waitSub').textContent = 'Watch the screen. The game starts soon.';
+        if (m.state === 'lobby') show('wait');
+      }
+      break;
     case 'question': startQuestion(m); break;
-    case 'cb_start': cbEnd = m.endAt; clearInterval(cbTimer); cbTimer = setInterval(cbTick, 500); cbTick(); seen = {}; break;
-    case 'cb_q': cbQuestion(m); break;
-    case 'cb_result': cbResult(m); break;
-    case 'cb_crack_result': cbCrackResult(m); break;
-    case 'cb_me': $('cbRank').textContent = `#${m.rank} of ${m.of}`; setCoins(m.coins); break;
-    case 'cb_hacked':
-      setCoins(m.coins);
-      toast(`🚨 ${m.by} cracked your vault and stole ${m.lost} coins! Your code was reset.`); break;
     case 'ack': $('waitMsg').textContent = 'Answer locked in'; $('waitSub').textContent = 'Waiting for everyone else…'; show('wait'); clearInterval(timer); break;
     case 'result': showResult(m); break;
     case 'end': showEnd(m); break;
     case 'closed':
       joined = false; ws.onclose = null; ws.close();
+      $('portal').classList.add('hidden');
       $('waitMsg').textContent = 'Game closed'; $('waitSub').textContent = m.reason || ''; show('wait'); break;
+    // ---- Code Breaker ----
+    case 'cb_start': cbEnd = m.endAt; clearInterval(cbTimer); cbTimer = setInterval(cbTick, 500); cbTick(); break;
+    case 'cb_needcode': openPortal('start'); break;
+    case 'cb_code_ok': codeLocked(); break;
+    case 'cb_code_error': $('codeErr').textContent = m.msg; break;
+    case 'cb_q': cbQuestion(m); break;
+    case 'cb_result': cbResult(m); break;
+    case 'cb_pick_result': cbPickResult(m); break;
+    case 'cb_crack_result': cbCrackResult(m); break;
+    case 'cb_me': $('cbRank').textContent = `#${m.rank}/${m.of}`; setCoins(m.coins); break;
+    case 'cb_hacked':
+      setCoins(m.coins); myCode = null; updateVault();
+      toast(`⚠ INTRUSION DETECTED: ${m.by} breached your vault and stole ${m.lost} ◈`);
+      openPortal('reset'); break;
   }
 }
 
-/* ---- Code Breaker ---- */
-let cbEnd = 0, cbTimer = null, seen = {}, cbToastTimer = null;
-const send = (o) => ws.send(JSON.stringify(o));
+/* ---------------- Code Breaker ---------------- */
+let cbEnd = 0, cbTimer = null, cbToastTimer = null, myCode = null, pendingCode = null, vaultShown = false, cbRunning = false;
+let seen = {}, elim = {}, lastPick = null, chosenAns = -1, cbCount = 0;
+const hex = () => '0x' + Math.floor(Math.random() * 0xfff).toString(16).toUpperCase().padStart(3, '0');
+const rnd4 = () => String(Math.floor(1000 + Math.random() * 9000));
+
 function cbTick() {
+  cbRunning = true;
   const s = Math.max(0, Math.ceil((cbEnd - Date.now()) / 1000));
   $('cbTime').textContent = `⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
-function setCoins(n) { $('cbCoins').textContent = '🪙 ' + n; }
+function setCoins(n) { $('cbCoins').textContent = '◈ ' + n; }
+function updateVault() {
+  $('vault').textContent = myCode ? (vaultShown ? `🔓 ${myCode}` : '🔒 ••••') : (autoCode ? '🔒 AUTO CODE' : '🔓 SET CODE');
+}
+$('vault').onclick = () => { vaultShown = !vaultShown; updateVault(); };
 function toast(text) {
   const t = $('cbToast'); t.textContent = text; t.classList.remove('hidden');
-  clearTimeout(cbToastTimer); cbToastTimer = setTimeout(() => t.classList.add('hidden'), 5000);
+  t.style.animation = 'none'; void t.offsetWidth; t.style.animation = '';
+  clearTimeout(cbToastTimer); cbToastTimer = setTimeout(() => t.classList.add('hidden'), 6000);
 }
-function cbPanel(which) { // 'q' | 'msg' | 'crack'
-  $('cbQ').classList.toggle('hidden', which !== 'q');
-  $('cbMsg').classList.toggle('hidden', which !== 'msg');
-  const c = $('cbCrack'); c.classList.toggle('hidden', which !== 'crack'); c.style.display = which === 'crack' ? 'grid' : 'none';
-}
-function cbMessage(html, ms, then) {
-  $('cbMsg').replaceChildren(); const h = document.createElement('h2'); h.textContent = html; $('cbMsg').appendChild(h);
-  cbPanel('msg'); setTimeout(then, ms);
+function cbPanel(which) { for (const id of ['cbQ', 'cbPacks', 'cbCrack', 'cbMsg']) $(id).classList.toggle('hidden', id !== which); }
+function cbMessage(big, cls, sub, ms) {
+  const b = $('cbMsgBig'); b.className = 'glitch ' + cls; b.textContent = big;
+  b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
+  $('cbMsgSub').textContent = sub || ''; cbPanel('cbMsg');
+  if (ms) setTimeout(cbNext, ms);
 }
 const cbNext = () => send({ t: 'cb_next' });
+const mkBtn = (cls) => { const b = document.createElement('button'); b.className = cls; return b; };
+
+/* portal: choose / reset the vault code */
+let portalReason = 'start', autoCode = false;
+function openPortal(reason) {
+  portalReason = reason;
+  const lines = reason === 'reset'
+    ? [['⚠ INTRUSION DETECTED', 'warn'], ['> YOUR VAULT HAS BEEN BREACHED', 'warn'], ['> CHOOSE A NEW 4-DIGIT CODE', '']]
+    : [['> VAULTNET // SECURE ACCESS NODE', ''], ['> HANDSHAKE WITH HOST... OK', 'dim'], ['> CHOOSE A 4-DIGIT VAULT CODE', ''],
+       ['> RIVALS WILL TRY TO CRACK IT. IT STAYS THE SAME UNTIL BREACHED.', 'dim']];
+  const boot = $('boot'); boot.replaceChildren();
+  lines.forEach(([text, cls], i) => { const d = document.createElement('div'); d.textContent = text; d.className = cls; d.style.animationDelay = (i * 350) + 'ms'; boot.appendChild(d); });
+  $('portalTitle').textContent = reason === 'reset' ? 'breach_recovery' : 'secure_portal';
+  $('codeIn').value = ''; $('codeErr').textContent = '';
+  $('portal').classList.remove('hidden'); setTimeout(() => $('codeIn').focus(), 50);
+}
+$('codeIn').oninput = (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4); };
+$('rand').onclick = () => { $('codeIn').value = rnd4(); };
+function lockCode() {
+  const c = $('codeIn').value;
+  if (!/^\d{4}$/.test(c)) return ($('codeErr').textContent = 'Enter exactly 4 digits.');
+  pendingCode = c; send({ t: 'cb_setcode', code: c });
+}
+$('lock').onclick = lockCode;
+$('codeIn').onkeydown = (e) => { if (e.key === 'Enter') lockCode(); };
+function codeLocked() {
+  myCode = pendingCode; updateVault(); $('portal').classList.add('hidden');
+  if (!cbRunning) { $('waitMsg').textContent = '> VAULT LOCKED'; $('waitSub').textContent = '> AWAITING HOST…'; show('wait'); }
+}
+
+/* question */
 function cbQuestion(m) {
-  setCoins(m.coins);
+  // the game started before this player locked a code: the server gave them a random one
+  if (!$('portal').classList.contains('hidden') && portalReason === 'start') { $('portal').classList.add('hidden'); autoCode = true; updateVault(); }
+  setCoins(m.coins); cbCount++; chosenAns = -1;
+  const mu = $('cbMult'); mu.classList.toggle('hidden', !m.mult); mu.textContent = `x2 · ${m.mult} left`;
+  $('cbQTitle').textContent = `query_${String(cbCount).padStart(3, '0')}`;
   $('cbQtext').textContent = m.q;
   const box = $('cbAnswers'); box.innerHTML = '';
   m.options.forEach((text, i) => {
-    const b = document.createElement('button'); b.className = 'ans'; b.dataset.i = i;
-    const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'ABCD'[i];
+    const b = mkBtn('ans'); b.dataset.i = i;
+    const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = '[' + 'ABCD'[i] + ']';
     b.append(tag, document.createTextNode(text));
-    b.onclick = () => { [...box.children].forEach((c) => c.disabled = true); send({ t: 'cb_answer', choice: i }); };
+    b.onclick = () => { chosenAns = i; [...box.children].forEach((c) => c.disabled = true); send({ t: 'cb_answer', choice: i }); };
     box.appendChild(b);
   });
-  cbPanel('q'); show('cb');
+  cbPanel('cbQ'); show('cb');
 }
+
 function cbResult(m) {
   setCoins(m.coins);
   if (!m.right) {
-    const box = $('cbAnswers');
-    [...box.children].forEach((c, i) => c.classList.add(i === m.correct ? 'right' : 'dim'));
+    [...$('cbAnswers').children].forEach((c, i) => c.classList.add(i === m.correct ? 'right' : (i === chosenAns ? 'bad' : 'dim')));
     return setTimeout(cbNext, 1600);
   }
-  if (!m.crack) return cbMessage(`✅ +${m.gain} coins!`, 1100, cbNext);
-  // vault cracking
-  const k = m.crack.target; seen[k] = seen[k] || {};
-  $('cbTarget').textContent = k; $('cbTargetCoins').textContent = `🪙 ${m.crack.targetCoins}`;
+  $('cbGain').textContent = `ACCESS GRANTED  +${m.gain} ◈${m.boosted ? '  (x2)' : ''}`;
+  const box = $('cbPackets'); box.innerHTML = '';
+  for (let i = 0; i < m.packets; i++) {
+    const b = mkBtn('ans packet'); b.dataset.i = i;
+    b.innerHTML = '<span class="ico">🔒</span>';
+    const t = document.createElement('div'); t.textContent = 'PACKET ' + hex(); b.appendChild(t);
+    const s = document.createElement('div'); s.className = 'sub'; s.textContent = 'ENCRYPTED'; b.appendChild(s);
+    b.onclick = () => { [...box.children].forEach((c) => c.disabled = true); b.dataset.picked = '1'; send({ t: 'cb_pick', idx: i }); };
+    box.appendChild(b);
+  }
+  setTimeout(() => cbPanel('cbPacks'), 450);
+}
+
+const PK = { coins: ['💰', 'BONUS CREDITS'], multi: ['⚡', 'x2 MULTIPLIER'], hack: ['🔓', 'HACK'] };
+function cbPickResult(m) {
+  setCoins(m.coins);
+  [...$('cbPackets').children].forEach((b, i) => {
+    const type = m.all[i], [ico, label] = PK[type];
+    b.classList.remove('dim'); b.classList.add(type); if (i !== m.idx) b.classList.add('faded');
+    b.querySelector('.ico').textContent = ico;
+    b.children[1].textContent = i === m.idx && type === 'coins' ? `+${m.amount} ◈` : label;
+    b.children[2].textContent = i === m.idx ? 'DECRYPTED' : 'MISSED';
+  });
+  if (m.type === 'coins') return setTimeout(cbNext, 1800);
+  if (m.type === 'multi') return setTimeout(() => cbMessage('x2 MULTIPLIER', 'granted', `Your next ${m.left} correct answers pay double.`, 1700), 1200);
+  setTimeout(() => showCrack(m.crack), 1300);
+}
+
+/* hacking */
+function showCrack(crack) {
+  const k = crack.target; seen[k] = seen[k] || {}; elim[k] = elim[k] || new Set();
+  $('cbTarget').textContent = k.toUpperCase(); $('cbTargetCoins').textContent = `VAULT: ◈ ${crack.targetCoins}`;
+  const live = crack.codes.filter((c) => !elim[k].has(c));
   const box = $('cbCodes'); box.innerHTML = '';
-  m.crack.codes.forEach((code, i) => {
-    const b = document.createElement('button'); b.className = 'ans'; b.dataset.i = i;
-    b.style.justifyContent = 'center'; b.style.fontFamily = 'ui-monospace, Menlo, monospace'; b.style.fontSize = '34px';
-    b.append(document.createTextNode(code));
-    if (seen[k][code]) { const n = document.createElement('span'); n.className = 'n'; n.textContent = `seen ${seen[k][code]}×`; b.appendChild(n); }
-    b.onclick = () => { [...box.children].forEach((c) => c.disabled = true); send({ t: 'cb_crack', pick: i }); };
+  crack.codes.forEach((code, i) => {
+    const b = mkBtn('ans codebtn'); b.dataset.i = i;
+    const label = document.createElement('span'); b.appendChild(label);
+    const note = document.createElement('small');
+    if (elim[k].has(code)) { b.classList.add('elim'); note.textContent = 'RULED OUT'; }
+    else if (live.length === 1) { b.classList.add('likely'); note.textContent = 'LAST ONE STANDING'; }
+    else if (seen[k][code]) note.textContent = `SEEN ${seen[k][code]}×`;
+    b.appendChild(note);
+    // decrypt animation: scramble digits, then settle
+    let n = 0; const iv = setInterval(() => { label.textContent = n++ < 9 ? rnd4() : code; if (n > 9) clearInterval(iv); }, 55);
+    b.onclick = () => { [...box.children].forEach((c) => c.disabled = true); lastPick = { k, code }; send({ t: 'cb_crack', pick: i }); };
     box.appendChild(b);
   });
-  m.crack.codes.forEach((code) => { seen[k][code] = (seen[k][code] || 0) + 1; });
-  $('cbCrackTitle').textContent = `✅ +${m.gain} coins! 🔐 Crack the vault`;
-  cbPanel('crack');
+  crack.codes.forEach((code) => { seen[k][code] = (seen[k][code] || 0) + 1; });
+  cbPanel('cbCrack');
 }
 function cbCrackResult(m) {
   setCoins(m.coins);
-  if (m.success) cbMessage(`🔓 Cracked ${m.target}'s vault! +${m.stolen} coins`, 1800, cbNext);
-  else cbMessage(`🔒 Wrong code. ${m.target}'s vault stays shut.`, 1500, cbNext);
+  if (m.success) {
+    delete seen[m.target]; delete elim[m.target];
+    return cbMessage('ACCESS GRANTED', 'granted', `${m.target}'s vault breached: +${m.stolen} ◈`, 2000);
+  }
+  if (lastPick && elim[lastPick.k]) elim[lastPick.k].add(lastPick.code);
+  cbMessage('ACCESS DENIED', 'denied', `Wrong code. It is now ruled out for ${m.target}.`, 1800);
 }
 
+/* ---------------- Classic ---------------- */
 function startQuestion(m) {
   answered = !!m.already;
   $('qnum').textContent = `Question ${m.index + 1} of ${m.total}`;
@@ -201,7 +342,7 @@ function startQuestion(m) {
     b.className = 'ans'; b.dataset.i = i;
     const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'ABCD'[i];
     b.append(tag, document.createTextNode(text));
-    b.onclick = () => { if (answered) return; answered = true; ws.send(JSON.stringify({ t: 'answer', choice: i })); [...box.children].forEach((c) => c.disabled = true); };
+    b.onclick = () => { if (answered) return; answered = true; send({ t: 'answer', choice: i }); [...box.children].forEach((c) => c.disabled = true); };
     box.appendChild(b);
   });
   if (answered) { $('waitMsg').textContent = 'Answer locked in'; $('waitSub').textContent = 'Waiting for everyone else…'; show('wait'); return; }
@@ -229,8 +370,10 @@ function showResult(m) {
 }
 
 function showEnd(m) {
-  $('endRank').textContent = m.rank === 1 ? '🏆 1st place!' : `#${m.rank} of ${m.of}`;
-  $('endScore').textContent = `${m.score} points`;
+  const hack = mode === 'codebreaker';
+  $('endTitle').textContent = hack ? '> SESSION TERMINATED' : 'Game over!';
+  $('endRank').textContent = m.rank === 1 ? (hack ? '👑 TOP HACKER' : '🏆 1st place!') : `#${m.rank} of ${m.of}`;
+  $('endScore').textContent = hack ? `◈ ${m.score}` : `${m.score} points`;
   const ol = $('endPodium'); ol.innerHTML = '';
   for (const p of m.podium) {
     const li = document.createElement('li');
@@ -238,7 +381,7 @@ function showEnd(m) {
     const s = document.createElement('span'); s.className = 's'; s.textContent = p.score;
     li.append(n, s); ol.appendChild(li);
   }
-  clearInterval(cbTimer);
+  clearInterval(cbTimer); cbRunning = false; $('portal').classList.add('hidden');
   joined = false; ws.onclose = null; show('end');
 }
 </script>
