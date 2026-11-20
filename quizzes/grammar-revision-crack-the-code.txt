@@ -1,0 +1,85 @@
+# 2.3 Grammar Revision: Crack the Code
+
+Which of these is a complex sentence?
+time: 30
+David climbed the wall.
+David climbed the wall, and the guard slept.
+*Because the light had gone out, David climbed the wall.
+David waited. Then he climbed.
+
+Which sentence uses a semicolon correctly?
+time: 30
+*The night was cold; David kept walking.
+The night; was cold.
+The night was; cold and dark.
+David kept; walking.
+
+Which sentence uses a colon correctly?
+time: 30
+David packed: bread.
+*David packed three things: bread, water and a compass.
+David: packed bread.
+The: compass pointed south.
+
+"If it rains, we will stay inside." What type of sentence is this?
+time: 30
+*First conditional
+Second conditional
+Third conditional
+Not a conditional
+
+"If I were the guard, I would let him go." What type of sentence is this?
+time: 30
+First conditional
+*Second conditional
+Third conditional
+Not a conditional
+
+"If David had stayed, he would have been caught." What type of sentence is this?
+time: 30
+First conditional
+Second conditional
+*Third conditional
+Not a conditional
+
+Which modal verb shows that something is POSSIBLE?
+time: 30
+must
+*might
+has to
+cannot
+
+Which modal verb shows STRONG OBLIGATION?
+time: 30
+could
+may
+*must
+might
+
+Which sentence is in the past perfect?
+time: 30
+David crosses the border.
+David crossed the border.
+*David had crossed the border.
+David is crossing the border.
+
+A character speaks to the audience, and the other characters on stage cannot hear. This is...
+time: 30
+a soliloquy
+*an aside
+a stage direction
+dialogue
+
+A character alone on stage says their thoughts aloud. This is...
+time: 30
+an aside
+*a soliloquy
+a stage direction
+dramatic irony
+
+Which of these is a compound sentence?
+time: 30
+Although he was tired, David walked on.
+*David was tired, but he walked on.
+Tired.
+David walked.
