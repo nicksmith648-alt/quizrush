@@ -83,3 +83,115 @@ Although he was tired, David walked on.
 *David was tired, but he walked on.
 Tired.
 David walked.
+
+Which of these is a simple sentence?
+time: 30
+David climbed the wall, but the guard woke up.
+When the guard woke up, David climbed the wall.
+Although he was tired, David climbed the wall.
+*David climbed the wall.
+
+Which word is a coordinating conjunction?
+time: 30
+because
+although
+while
+*but
+
+Which word begins a subordinate clause?
+time: 30
+and
+but
+so
+*although
+
+"Although it was dark, David kept walking." Which part is the main clause?
+time: 30
+*David kept walking
+Although it was dark
+Although
+it was dark, David
+
+Which sentence is correctly punctuated?
+time: 30
+*David ran; the guard chased him.
+David ran, the guard chased him.
+David ran the guard, chased him.
+David ran. the guard chased him.
+
+Which punctuation mark is used to introduce a list?
+time: 30
+A semicolon
+A comma
+A full stop
+*A colon
+
+"If you heat ice, it melts." What type of sentence is this?
+time: 30
+*Zero conditional
+First conditional
+Second conditional
+Third conditional
+
+"If David finds the key, he will open the gate." What type of sentence is this?
+time: 30
+Zero conditional
+Second conditional
+*First conditional
+Third conditional
+
+Which modal verb shows ABILITY?
+time: 30
+must
+might
+should
+*can
+
+"You ___ stay hidden until dark." Which modal verb gives ADVICE?
+time: 30
+*should
+might
+cannot
+was
+
+Which sentence is in the present perfect?
+time: 30
+David crossed the border.
+David had crossed the border.
+David crosses the border.
+*David has crossed the border.
+
+"By the time the guard arrived, David ___ escaped." Which word completes the sentence in the past perfect?
+time: 30
+has
+have
+*had
+was
+
+Which sentence is in the passive voice?
+time: 30
+David climbed the wall.
+*The wall was climbed by David.
+David is climbing the wall.
+David will climb the wall.
+
+In a play script, what are the instructions that tell actors how to move or speak?
+time: 30
+Dialogue
+A soliloquy
+An aside
+*Stage directions
+
+The audience knows the guard is hiding behind the door, but David does not. This is...
+time: 30
+a soliloquy
+an aside
+*dramatic irony
+a stage direction
+
+"In the silence of the night, David crept forward." What is the fronted adverbial?
+time: 30
+*In the silence of the night
+crept forward
+David
+forward
