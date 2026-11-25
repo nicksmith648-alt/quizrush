@@ -6,6 +6,14 @@
 <title>QuizRush</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/hack.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1f1a3d">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="QuizRush">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 <main>
@@ -19,6 +27,8 @@
       <button>Join</button>
       <div id="joinErr" class="err"></div>
     </form>
+    <button id="installBtn" class="ghost hidden" type="button" style="margin-top:14px">📲 Install the QuizRush app</button>
+    <p id="iosHint" class="muted hidden" style="margin:14px 0 0">On iPhone: tap <b>Share</b>, then <b>Add to Home Screen</b> to install.</p>
   </section>
 
   <!-- waiting -->
@@ -125,6 +135,15 @@ if (qs.get('pin')) $('pin').value = qs.get('pin');
 try { $('name').value = localStorage.getItem('qr-name') || ''; } catch {}
 
 let ws, joined = false, timer = null, answered = false, mode = 'classic';
+/* ---- installable app ---- */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; $('installBtn').classList.remove('hidden'); });
+window.addEventListener('appinstalled', () => $('installBtn').classList.add('hidden'));
+$('installBtn').onclick = async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; $('installBtn').classList.add('hidden'); };
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone && $('iosHint')) $('iosHint').classList.remove('hidden');
+
 const send = (o) => ws.send(JSON.stringify(o));
 
 function connect(pin, name) {

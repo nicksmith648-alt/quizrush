@@ -59,3 +59,10 @@ On the host page choose a mode, then tick one or **several quizzes** (they are c
 3. When it finishes you get an address like `https://quizrush-xxxx.onrender.com`. Students open it; you open `/host` on the same address and enter the password.
 
 The free plan sleeps after ~15 minutes idle (first visit then takes about a minute), so open the site before class. Games live in memory and are lost on restart. To run the teacher-password check locally: `HOST_PASSWORD=secret npm start`.
+
+## Install it as an app
+QuizRush is an installable web app (PWA). Open the site on a phone or Chromebook, then:
+- **Android / Chrome:** tap **Install the QuizRush app** on the join page (or the browser menu > Install app).
+- **iPhone / iPad (Safari):** tap Share > **Add to Home Screen**.
+- **Computer (Chrome/Edge):** click the install icon in the address bar.
+It then opens full-screen with its own icon. Teachers get "Host a game" as a long-press shortcut on the icon.

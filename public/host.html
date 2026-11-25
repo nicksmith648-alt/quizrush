@@ -6,12 +6,21 @@
 <title>QuizRush · Host</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/hack.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1f1a3d">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="QuizRush">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 <main>
   <!-- setup -->
   <section id="setup" style="display:grid;gap:16px">
     <h1>Quiz<span style="color:var(--c)">Rush</span> <span class="muted" style="font-size:.4em">teacher screen</span></h1>
+    <div class="row"><button id="installBtn" class="ghost hidden" type="button">📲 Install the QuizRush app</button></div>
     <div class="card hidden" id="pwCard" style="display:none;gap:12px">
       <h2>Teacher password</h2>
       <input id="pw" type="password" autocomplete="current-password" placeholder="Teacher password">
@@ -119,6 +128,15 @@ const show = (id) => SECTIONS.forEach((s) => { const el = $(s); el.style.display
 show('setup');
 
 let ws, timer = null, currentOptions = [], hostMode = 'classic', cbTotal = 1;
+/* ---- installable app ---- */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; $('installBtn').classList.remove('hidden'); });
+window.addEventListener('appinstalled', () => $('installBtn').classList.add('hidden'));
+$('installBtn').onclick = async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; $('installBtn').classList.add('hidden'); };
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+
+
 const mode = () => document.querySelector('input[name=mode]:checked').value;
 const hackOn = (on, opacity) => { document.body.classList.toggle('hack', on); if (on) startRain(opacity); else stopRain(); };
 
